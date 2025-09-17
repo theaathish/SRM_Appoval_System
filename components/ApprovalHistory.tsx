@@ -84,7 +84,10 @@ const getStatusDisplayName = (status: string) => {
     'chairman_approval': 'Chairman Approval',
     'approved': 'Approved',
     'rejected': 'Rejected',
-    'clarification_required': 'Clarification Required'
+    'clarification_required': 'Clarification Required',
+    'sop_clarification': 'SOP Clarification',
+    'budget_clarification': 'Budget Clarification',
+    'department_clarification': 'Department Clarification'
   };
   
   return statusMap[status.toLowerCase()] || status;

@@ -3,6 +3,7 @@ import { z } from 'zod';
 export enum UserRole {
   REQUESTER = 'requester',
   INSTITUTION_MANAGER = 'institution_manager',
+  SOP_VERIFIER = 'sop_verifier',
   ACCOUNTANT = 'accountant',
   VP = 'vp',
   HEAD_OF_INSTITUTION = 'head_of_institution',
@@ -31,6 +32,9 @@ export enum RequestStatus {
   APPROVED = 'approved',
   REJECTED = 'rejected',
   CLARIFICATION_REQUIRED = 'clarification_required',
+  SOP_CLARIFICATION = 'sop_clarification',
+  BUDGET_CLARIFICATION = 'budget_clarification',
+  DEPARTMENT_CLARIFICATION = 'department_clarification', // For Dean's clarifications to MMA, HR, Audit, IT
 }
 
 export enum ActionType {

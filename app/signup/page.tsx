@@ -7,6 +7,7 @@ import { UserRole } from '../../lib/types';
 const roleOptions = [
   { value: UserRole.REQUESTER, label: 'Requester/HOD' },
   { value: UserRole.INSTITUTION_MANAGER, label: 'Institution Manager' },
+  { value: UserRole.SOP_VERIFIER, label: 'SOP Verifier' },
   { value: UserRole.ACCOUNTANT, label: 'Accountant' },
   { value: UserRole.VP, label: 'Vice President' },
   { value: UserRole.HEAD_OF_INSTITUTION, label: 'Head of Institution' },
@@ -17,6 +18,13 @@ const roleOptions = [
   { value: UserRole.IT, label: 'IT' },
   { value: UserRole.CHIEF_DIRECTOR, label: 'Chief Director' },
   { value: UserRole.CHAIRMAN, label: 'Chairman' },
+];
+
+// Roles that require department field
+const rolesWithDepartment = [
+  UserRole.REQUESTER,
+  UserRole.DEAN,
+  UserRole.HEAD_OF_INSTITUTION
 ];
 
 export default function SignupPage() {
@@ -44,7 +52,10 @@ export default function SignupPage() {
       return;
     }
 
-    if (!name || !email || !password || !empId || !college || !department) {
+    // Check if department is required for this role
+    const isDepartmentRequired = rolesWithDepartment.includes(selectedRole);
+
+    if (!name || !email || !password || !empId || !college || (isDepartmentRequired && !department)) {
       setError('Please fill in all required fields');
       setLoading(false);
       return;
@@ -63,7 +74,7 @@ export default function SignupPage() {
           password,
           role: selectedRole,
           college,
-          department,
+          department: rolesWithDepartment.includes(selectedRole) ? department : null,
         }),
       });
 
@@ -184,7 +195,14 @@ export default function SignupPage() {
                 id="role"
                 required
                 value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value as UserRole)}
+                onChange={(e) => {
+                  const newRole = e.target.value as UserRole;
+                  setSelectedRole(newRole);
+                  // Clear department if the new role doesn't need it
+                  if (!rolesWithDepartment.includes(newRole)) {
+                    setDepartment('');
+                  }
+                }}
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 bg-white shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
               >
                 {roleOptions.map((option) => (
@@ -210,20 +228,22 @@ export default function SignupPage() {
               />
             </div>
 
-            <div>
-              <label htmlFor="department" className="block text-sm font-medium text-gray-700">
-                Department *
-              </label>
-              <input
-                id="department"
-                type="text"
-                required
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 bg-white shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                placeholder="Enter your department name"
-              />
-            </div>
+            {rolesWithDepartment.includes(selectedRole) && (
+              <div>
+                <label htmlFor="department" className="block text-sm font-medium text-gray-700">
+                  Department *
+                </label>
+                <input
+                  id="department"
+                  type="text"
+                  required
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 bg-white shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Enter your department name"
+                />
+              </div>
+            )}
 
             <div>
               <button

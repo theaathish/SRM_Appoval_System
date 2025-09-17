@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 interface UploadedFile {
   url: string;
@@ -18,7 +18,7 @@ interface ApprovalModalProps {
     budgetAvailable?: boolean;
     forwardedMessage?: string;
     attachments?: string[];
-    target?: 'sop' | 'budget';
+    target?: 'sop' | 'accountant' | 'mma' | 'hr' | 'audit' | 'it';
   }) => Promise<void>;
   currentStatus: string;
   userRole?: string; // Optionally pass user role for UI logic
@@ -42,7 +42,63 @@ export default function ApprovalModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [clarifyTarget, setClarifyTarget] = useState<'sop' | 'budget' | ''>('');
+  const [clarifyTarget, setClarifyTarget] = useState<'sop' | 'accountant' | 'mma' | 'hr' | 'audit' | 'it' | ''>('');
+
+  // Roles that can only respond to clarifications (no approval/reject actions)
+  const clarificationOnlyRoles = ['sop_verifier', 'accountant', 'mma', 'hr', 'audit', 'it'];
+  const isClarificationOnlyUser = clarificationOnlyRoles.includes(userRole || '');
+  
+  // Institution Manager: can only clarify, reject, forward (NO approve)
+  const isInstitutionManager = userRole === 'institution_manager';
+  
+  // Senior roles: can only approve (NO reject, clarification, forward) - excluding Dean who has clarification capabilities
+  const approvalOnlyRoles = ['vp', 'head_of_institution', 'chief_director', 'chairman'];
+  const isApprovalOnlyUser = approvalOnlyRoles.includes(userRole || '');
+  
+  // Dean has special capabilities: approve, clarify (with 4 departments), reject, forward
+  const isDean = userRole === 'dean';
+  
+  // Check if current status is a clarification status
+  const isClarificationStatus = currentStatus === 'sop_clarification' || 
+                               currentStatus === 'budget_clarification' || 
+                               currentStatus === 'department_clarification';
+
+  // Roles that cannot request clarifications (they can only respond to them)
+  const rolesWithoutClarificationOption = ['sop_verifier', 'accountant', 'mma', 'hr', 'audit', 'it'];
+  const canRequestClarification = userRole === 'institution_manager' || userRole === 'dean';
+
+  // Reset action to appropriate default based on user type and status
+  useEffect(() => {
+    if (isClarificationOnlyUser && isClarificationStatus) {
+      // For clarification-only users in clarification status, default to clarify (response)
+      if (action !== 'clarify') {
+        setAction('clarify');
+        setClarifyTarget('');
+      }
+    } else if (isApprovalOnlyUser) {
+      // For approval-only users (VP, HOI, Chief Director, Chairman), default to approve
+      if (action !== 'approve') {
+        setAction('approve');
+        setClarifyTarget('');
+      }
+    } else if (isInstitutionManager) {
+      // For Institution Manager, default to reject (since they can't approve)
+      if (!['reject', 'clarify', 'forward'].includes(action)) {
+        setAction('reject');
+        setClarifyTarget('');
+      }
+    } else if (isDean) {
+      // For Dean, default to approve (they have full capabilities)
+      if (!['approve', 'reject', 'clarify', 'forward'].includes(action)) {
+        setAction('approve');
+        setClarifyTarget('');
+      }
+    } else if (!canRequestClarification && action === 'clarify') {
+      // For users who can't request clarifications, reset to approve
+      setAction('approve');
+      setClarifyTarget('');
+    }
+  }, [canRequestClarification, action, isClarificationOnlyUser, isClarificationStatus, isApprovalOnlyUser, isInstitutionManager, isDean]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,29 +213,84 @@ export default function ApprovalModal({
               }}
               className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
             >
-              <option value="approve">Approve</option>
-              <option value="reject">Reject</option>
-              <option value="clarify">Request Clarification</option>
-              <option value="forward">Forward</option>
+              {/* For clarification-only users in clarification status, only show clarification response */}
+              {isClarificationOnlyUser && isClarificationStatus ? (
+                <>
+                  <option value="clarify">Submit Clarification Response</option>
+                </>
+              ) : isApprovalOnlyUser ? (
+                <>
+                  {/* Senior roles (VP, HOI, Chief Director, Chairman) can only approve */}
+                  <option value="approve">Approve</option>
+                </>
+              ) : isInstitutionManager ? (
+                <>
+                  {/* Institution Manager can clarify, reject, forward (NO approve) */}
+                  <option value="reject">Reject</option>
+                  <option value="clarify">Request Clarification</option>
+                  <option value="forward">Forward</option>
+                </>
+              ) : isDean ? (
+                <>
+                  {/* Dean can approve, clarify with departments, reject, forward */}
+                  <option value="approve">Approve</option>
+                  <option value="reject">Reject</option>
+                  <option value="clarify">Request Clarification</option>
+                  <option value="forward">Forward</option>
+                </>
+              ) : (
+                <>
+                  {/* Default for other users - all actions */}
+                  <option value="approve">Approve</option>
+                  <option value="reject">Reject</option>
+                  {canRequestClarification && (
+                    <option value="clarify">Request Clarification</option>
+                  )}
+                  <option value="forward">Forward</option>
+                </>
+              )}
             </select>
           </div>
           
-          {/* Show clarify target selection if action is clarify and user is Institution Manager */}
-          {action === 'clarify' && (userRole === 'institution_manager' || !userRole) && (
+          {/* Show clarify target selection for Institution Manager and Dean only */}
+          {action === 'clarify' && !isClarificationOnlyUser && (userRole === 'institution_manager' || userRole === 'dean') && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Clarification Target
               </label>
               <select
                 value={clarifyTarget}
-                onChange={e => setClarifyTarget(e.target.value as 'sop' | 'budget')}
+                onChange={e => setClarifyTarget(e.target.value as 'sop' | 'accountant' | 'mma' | 'hr' | 'audit' | 'it')}
                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
                 required
               >
                 <option value="">Select target...</option>
-                <option value="sop">SOP Verification (Material Check)</option>
-                <option value="budget">Accountant Verify (Budget Check)</option>
+                {userRole === 'institution_manager' && (
+                  <>
+                    {/* Institution Manager can clarify with SOP Verifier and Accountant */}
+                    <option value="sop">SOP Verifier (Material Check)</option>
+                    <option value="accountant">Accountant (Budget Check)</option>
+                  </>
+                )}
+                {userRole === 'dean' && (
+                  <>
+                    {/* Dean can clarify with the 4 department users */}
+                    <option value="mma">MMA (Department)</option>
+                    <option value="hr">HR (Department)</option>
+                    <option value="audit">Audit (Department)</option>
+                    <option value="it">IT (Department)</option>
+                  </>
+                )}
               </select>
+            </div>
+          )}
+
+          {/* Show clarification response note for clarification-only users */}
+          {action === 'clarify' && isClarificationOnlyUser && isClarificationStatus && (
+            <div>
+              <p className="text-sm text-blue-600 bg-blue-50 p-3 rounded-md">
+                You are responding to a clarification request. Please provide the requested information in the notes section below.
+              </p>
             </div>
           )}
           {action === 'forward' ? (

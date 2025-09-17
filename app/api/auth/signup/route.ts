@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '../../../../lib/mongodb';
 import User from '../../../../models/User';
 import { UserRole } from '../../../../lib/types';
-import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,23 +30,17 @@ export async function POST(request: NextRequest) {
     if (existingUserByEmpId) {
       return NextResponse.json({ error: 'User with this employee ID already exists' }, { status: 400 });
     }
-    
-    // Hash password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-    
-    // Create user
+
+    // Create user (password will be automatically hashed by the User model pre-save hook)
     const user = await User.create({
       name,
       empId,
       email,
-      password: hashedPassword,
+      password, // Don't hash here - let the model do it
       role,
       college: college || null,
       department: department || null,
-    });
-    
-    // Return success response (without password)
+    });    // Return success response (without password)
     const { password: _, ...userWithoutPassword } = user.toObject();
     
     return NextResponse.json({ 

@@ -144,6 +144,7 @@ function getRoleDisplayName(role: UserRole): string {
   const roleNames = {
     [UserRole.REQUESTER]: 'John Requester',
     [UserRole.INSTITUTION_MANAGER]: 'Sarah Manager',
+    [UserRole.SOP_VERIFIER]: 'Diana SOP Verifier',
     [UserRole.ACCOUNTANT]: 'Mike Accountant',
     [UserRole.VP]: 'Lisa VP',
     [UserRole.HEAD_OF_INSTITUTION]: 'David HOI',

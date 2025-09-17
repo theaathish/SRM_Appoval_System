@@ -144,6 +144,12 @@ export default function RequestDetailPage({ params }: { params: { id: string } }
         return 'bg-emerald-100 text-emerald-800';
       case 'clarification_required':
         return 'bg-rose-100 text-rose-800';
+      case 'sop_clarification':
+        return 'bg-red-100 text-red-800';
+      case 'budget_clarification':
+        return 'bg-red-100 text-red-800';
+      case 'department_clarification':
+        return 'bg-red-100 text-red-800';
       default:
         return 'bg-blue-100 text-blue-800';
     }
@@ -164,7 +170,10 @@ export default function RequestDetailPage({ params }: { params: { id: string } }
       'chairman_approval': 'Chairman Approval',
       'approved': 'Approved',
       'rejected': 'Rejected',
-      'clarification_required': 'Clarification Required'
+      'clarification_required': 'Clarification Required',
+      'sop_clarification': 'SOP Clarification',
+      'budget_clarification': 'Budget Clarification',
+      'department_clarification': 'Department Clarification'
     };
     
     return statusMap[status.toLowerCase()] || status;
@@ -329,15 +338,33 @@ export default function RequestDetailPage({ params }: { params: { id: string } }
             </div>
           )}
           
-          {/* Action Buttons - Only show for approvers */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <button
-              onClick={() => setIsApprovalModalOpen(true)}
-              className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 w-full sm:w-auto"
-            >
-              Process Request
-            </button>
-          </div>
+          {/* Action Buttons - Only show for appropriate approvers, NOT for requesters */}
+          {(() => {
+            const clarificationOnlyRoles = ['sop_verifier', 'accountant', 'mma', 'hr', 'audit', 'it'];
+            const isClarificationOnlyUser = clarificationOnlyRoles.includes(currentUser?.role || '');
+            const isClarificationStatus = request.status === 'sop_clarification' || 
+                                         request.status === 'budget_clarification' || 
+                                         request.status === 'department_clarification';
+            
+            // Hide button for requesters (HOD)
+            const isRequester = currentUser?.role === 'requester';
+            
+            // Show button for all users except requesters and clarification-only users who are not in clarification status
+            const shouldShowButton = !isRequester && 
+                                    (!isClarificationOnlyUser || 
+                                     (isClarificationOnlyUser && isClarificationStatus));
+            
+            return shouldShowButton ? (
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <button
+                  onClick={() => setIsApprovalModalOpen(true)}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 w-full sm:w-auto"
+                >
+                  {isClarificationOnlyUser && isClarificationStatus ? 'Respond to Clarification' : 'Process Request'}
+                </button>
+              </div>
+            ) : null;
+          })()}
         </div>
       </div>
 
@@ -368,6 +395,7 @@ export default function RequestDetailPage({ params }: { params: { id: string } }
         onClose={() => setIsApprovalModalOpen(false)}
         onApprove={handleApprove}
         currentStatus={request.status}
+        userRole={currentUser?.role}
       />
     </div>
   );

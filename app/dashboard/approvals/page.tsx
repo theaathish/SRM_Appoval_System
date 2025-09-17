@@ -112,6 +112,12 @@ export default function ApprovalsPage() {
         return 'bg-emerald-100 text-emerald-800';
       case 'clarification_required':
         return 'bg-rose-100 text-rose-800';
+      case 'sop_clarification':
+        return 'bg-red-100 text-red-800';
+      case 'budget_clarification':
+        return 'bg-red-100 text-red-800';
+      case 'department_clarification':
+        return 'bg-red-100 text-red-800';
       default:
         return 'bg-blue-100 text-blue-800';
     }
@@ -132,7 +138,10 @@ export default function ApprovalsPage() {
       'chairman_approval': 'Chairman Approval',
       'approved': 'Approved',
       'rejected': 'Rejected',
-      'clarification_required': 'Clarification Required'
+      'clarification_required': 'Clarification Required',
+      'sop_clarification': 'SOP Clarification',
+      'budget_clarification': 'Budget Clarification',
+      'department_clarification': 'Department Clarification'
     };
     
     return statusMap[status.toLowerCase()] || status;

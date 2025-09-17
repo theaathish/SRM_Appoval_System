@@ -47,6 +47,7 @@ const navigation: NavItem[] = [
     icon: ClipboardDocumentListIcon,
     roles: [
       UserRole.INSTITUTION_MANAGER, 
+      UserRole.SOP_VERIFIER,
       UserRole.ACCOUNTANT, 
       UserRole.VP, 
       UserRole.HEAD_OF_INSTITUTION,

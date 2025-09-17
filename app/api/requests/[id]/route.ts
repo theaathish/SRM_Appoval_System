@@ -25,12 +25,28 @@ export async function GET(
     }
 
     // Check if user has permission to view this request
-    if (user.role !== UserRole.REQUESTER && user.role !== UserRole.INSTITUTION_MANAGER) {
-      // For now, let's allow requesters and institution managers to view requests
-      // In a full implementation, you'd want more specific permission checks
-      if (requestRecord.requester._id.toString() !== user.id) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-      }
+    // Allow all roles that participate in the approval process to view requests
+    const allowedRoles = [
+      UserRole.REQUESTER,
+      UserRole.INSTITUTION_MANAGER,
+      UserRole.SOP_VERIFIER,
+      UserRole.ACCOUNTANT,
+      UserRole.VP,
+      UserRole.HEAD_OF_INSTITUTION,
+      UserRole.DEAN,
+      UserRole.MMA,
+      UserRole.HR,
+      UserRole.AUDIT,
+      UserRole.IT,
+      UserRole.CHIEF_DIRECTOR,
+      UserRole.CHAIRMAN
+    ];
+
+    const canViewRequest = allowedRoles.includes(user.role) || 
+                          requestRecord.requester._id.toString() === user.id;
+
+    if (!canViewRequest) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     return NextResponse.json(requestRecord);

@@ -62,14 +62,22 @@ export async function POST(
         break;
         
       case 'clarify':
-        // For Institution Manager clarification, determine which step to clarify (sop or budget)
+        // For Institution Manager clarification, determine which step to clarify
         if (user.role === UserRole.INSTITUTION_MANAGER && target) {
           // Use approval engine to determine next status based on target
           nextStatus = approvalEngine.getNextStatus(
             requestRecord.status,
             ActionType.CLARIFY,
             user.role as UserRole,
-            { action: 'clarify', target }
+            { clarificationType: target }
+          ) || requestRecord.status;
+        } else if (user.role === UserRole.DEAN && target) {
+          // Dean clarification with department users
+          nextStatus = approvalEngine.getNextStatus(
+            requestRecord.status,
+            ActionType.CLARIFY,
+            user.role as UserRole,
+            { clarificationType: 'department' }
           ) || requestRecord.status;
         } else {
           nextStatus = RequestStatus.CLARIFICATION_REQUIRED;
@@ -78,7 +86,13 @@ export async function POST(
         break;
         
       case 'forward':
-        // For forward action, status remains the same
+        // Use approval engine to determine next status for forward action
+        nextStatus = approvalEngine.getNextStatus(
+          requestRecord.status,
+          ActionType.FORWARD,
+          user.role as UserRole,
+          { }
+        ) || requestRecord.status;
         actionType = ActionType.FORWARD;
         break;
     }
@@ -88,7 +102,7 @@ export async function POST(
   action: actionType,
   actor: user.id,
   previousStatus: previousStatus,
-  newStatus: action !== 'forward' ? nextStatus : previousStatus,
+  newStatus: nextStatus, // Always use the actual nextStatus
   timestamp: new Date(),
   ...(action === 'clarify' && target ? { target } : {}),
     };
@@ -115,17 +129,17 @@ export async function POST(
       }
     };
 
-    // Only update status if it's not a forward action
-    if (action !== 'forward') {
+    // Update status if it actually changed
+    if (nextStatus !== previousStatus) {
       updateData.$set = { status: nextStatus };
     }
 
     // Handle attachments at the request level for approve/reject actions
     if (action !== 'forward' && attachments && attachments.length > 0) {
-      updateData.$set = {
-        ...updateData.$set,
-        attachments: [...requestRecord.attachments, ...attachments]
-      };
+      if (!updateData.$set) {
+        updateData.$set = {};
+      }
+      updateData.$set.attachments = [...requestRecord.attachments, ...attachments];
     }
 
     const updatedRequest = await Request.findByIdAndUpdate(

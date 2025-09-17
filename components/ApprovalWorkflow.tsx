@@ -33,14 +33,17 @@ const getStatusDisplayName = (status: string) => {
     'chairman_approval': 'Chairman Approval',
     'approved': 'Approved',
     'rejected': 'Rejected',
-    'clarification_required': 'Clarification Required'
+    'clarification_required': 'Clarification Required',
+    'sop_clarification': 'SOP Clarification',
+    'budget_clarification': 'Budget Clarification',
+    'department_clarification': 'Department Clarification'
   };
   
   return statusMap[status.toLowerCase()] || status;
 };
 
 const ApprovalWorkflow: React.FC<ApprovalWorkflowProps> = ({ currentStatus }) => {
-  // Define the approval workflow steps
+  // Define the main approval workflow steps
   const workflowSteps = [
     { id: 'submitted', name: 'Submitted' },
     { id: 'manager_review', name: 'Manager Review' },
@@ -57,7 +60,10 @@ const ApprovalWorkflow: React.FC<ApprovalWorkflowProps> = ({ currentStatus }) =>
     { id: 'approved', name: 'Approved' },
   ];
 
-  // Find the index of the current status
+  // Check if current status is a clarification status
+  const isClarificationStatus = ['sop_clarification', 'budget_clarification', 'clarification_required'].includes(currentStatus);
+  
+  // Find the index of the current status in main workflow
   const currentStatusIndex = workflowSteps.findIndex(step => step.id === currentStatus);
 
   return (
@@ -67,7 +73,30 @@ const ApprovalWorkflow: React.FC<ApprovalWorkflowProps> = ({ currentStatus }) =>
         <p className="mt-1 text-sm text-gray-500">Current status of this request in the approval process</p>
       </div>
       <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
-        <div className="flex flex-col">
+        {/* Show clarification status if applicable */}
+        {isClarificationStatus && (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-center">
+              <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center mr-3">
+                <svg className="w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="text-lg font-medium text-yellow-800">
+                  {getStatusDisplayName(currentStatus)}
+                </h4>
+                <p className="text-sm text-yellow-700">
+                  {currentStatus === 'sop_clarification' && 'Waiting for SOP verification clarification from SOP Verifier or Department (MMA/HR/Audit/IT)'}
+                  {currentStatus === 'budget_clarification' && 'Waiting for budget clarification from Accountant'}
+                  {currentStatus === 'clarification_required' && 'Waiting for clarification from Requester'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        <div className="flex flex-col">{/* Main workflow continues here */}
           {/* Desktop view - horizontal workflow */}
           <div className="hidden md:flex justify-between relative">
             {/* Progress line */}
