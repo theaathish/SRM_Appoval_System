@@ -1,0 +1,374 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import ApprovalModal from '../../../../components/ApprovalModal';
+import ApprovalHistory from '../../../../components/ApprovalHistory';
+import ApprovalWorkflow from '../../../../components/ApprovalWorkflow';
+import { RequestStatus, ActionType, UserRole } from '../../../../lib/types';
+
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  createdAt: Date;
+}
+
+interface ApprovalHistoryItem {
+  _id: string;
+  action: ActionType;
+  actor: User;
+  notes?: string;
+  budgetAvailable?: boolean;
+  forwardedMessage?: string;
+  attachments?: string[];
+  previousStatus?: RequestStatus;
+  newStatus?: RequestStatus;
+  timestamp: Date;
+}
+
+interface Request {
+  _id: string;
+  title: string;
+  purpose: string;
+  college: string;
+  department: string;
+  costEstimate: number;
+  expenseCategory: string;
+  sopReference?: string;
+  attachments: string[];
+  requester: User;
+  status: RequestStatus;
+  createdAt: string;
+  updatedAt: string;
+  history: ApprovalHistoryItem[];
+}
+
+export default function RequestDetailPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
+  const [request, setRequest] = useState<Request | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    fetchRequest();
+    fetchCurrentUser();
+  }, [params.id]);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      if (response.ok) {
+        const userData = await response.json();
+        setCurrentUser(userData);
+      }
+    } catch (err) {
+      console.error('Error fetching current user:', err);
+    }
+  };
+
+  const fetchRequest = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/requests/${params.id}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Request not found');
+        }
+        throw new Error('Failed to fetch request');
+      }
+      
+      const data = await response.json();
+      setRequest(data);
+    } catch (err) {
+      console.error('Error fetching request:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load request');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApprove = async (approvalData: any) => {
+    try {
+      const response = await fetch(`/api/requests/${params.id}/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(approvalData),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to process approval');
+      }
+      
+      // Refresh request data
+      await fetchRequest();
+      setIsApprovalModalOpen(false);
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const getStatusBadgeClass = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return 'bg-green-100 text-green-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      case 'draft':
+        return 'bg-gray-100 text-gray-800';
+      case 'submitted':
+        return 'bg-blue-100 text-blue-800';
+      case 'manager_review':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'budget_check':
+        return 'bg-purple-100 text-purple-800';
+      case 'vp_approval':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'hoi_approval':
+        return 'bg-pink-100 text-pink-800';
+      case 'dean_review':
+        return 'bg-orange-100 text-orange-800';
+      case 'department_checks':
+        return 'bg-teal-100 text-teal-800';
+      case 'dean_verification':
+        return 'bg-cyan-100 text-cyan-800';
+      case 'chief_director_approval':
+        return 'bg-amber-100 text-amber-800';
+      case 'chairman_approval':
+        return 'bg-emerald-100 text-emerald-800';
+      case 'clarification_required':
+        return 'bg-rose-100 text-rose-800';
+      default:
+        return 'bg-blue-100 text-blue-800';
+    }
+  };
+
+  const getStatusDisplayName = (status: string) => {
+    const statusMap: Record<string, string> = {
+      'draft': 'Draft',
+      'submitted': 'Submitted',
+      'manager_review': 'Manager Review',
+      'budget_check': 'Budget Check',
+      'vp_approval': 'VP Approval',
+      'hoi_approval': 'HOI Approval',
+      'dean_review': 'Dean Review',
+      'department_checks': 'Department Checks',
+      'dean_verification': 'Dean Verification',
+      'chief_director_approval': 'Chief Director Approval',
+      'chairman_approval': 'Chairman Approval',
+      'approved': 'Approved',
+      'rejected': 'Rejected',
+      'clarification_required': 'Clarification Required'
+    };
+    
+    return statusMap[status.toLowerCase()] || status;
+  };
+
+  // Function to extract filename from URL
+  const getFileNameFromUrl = (url: string) => {
+    if (!url) return 'Document';
+    const parts = url.split('/');
+    return parts[parts.length - 1] || 'Document';
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <p className="text-red-800">{error}</p>
+          <button
+            onClick={() => router.back()}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!request) {
+    return (
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+          <p className="text-yellow-800">Request not found</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto p-6">
+      <div className="mb-6">
+        <button
+          onClick={() => router.push('/dashboard/requests')}
+          className="flex items-center text-blue-600 hover:text-blue-800"
+        >
+          <svg className="mr-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+          </svg>
+          Back to Requests
+        </button>
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <strong className="font-bold">Error! </strong>
+          <span className="block sm:inline">{error}</span>
+        </div>
+      )}
+
+      {/* Request Details Card */}
+      <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-8">
+        <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+            <div className="mb-4 md:mb-0">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">{request.title}</h3>
+              <p className="mt-1 max-w-2xl text-sm text-gray-500">{request.purpose}</p>
+            </div>
+            <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${getStatusBadgeClass(request.status)}`}>
+              {getStatusDisplayName(request.status)}
+            </span>
+          </div>
+        </div>
+        
+        <div className="px-4 py-5 sm:p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 className="text-sm font-medium text-gray-500">Request Details</h4>
+              <dl className="mt-2 space-y-3">
+                <div className="flex justify-between">
+                  <dt className="text-sm font-medium text-gray-500">Request ID</dt>
+                  <dd className="text-sm text-gray-900">{request._id}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm font-medium text-gray-500">Requester</dt>
+                  <dd className="text-sm text-gray-900">{request.requester.name}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm font-medium text-gray-500">Email</dt>
+                  <dd className="text-sm text-gray-900">{request.requester.email}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm font-medium text-gray-500">College</dt>
+                  <dd className="text-sm text-gray-900">{request.college}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm font-medium text-gray-500">Department</dt>
+                  <dd className="text-sm text-gray-900">{request.department}</dd>
+                </div>
+              </dl>
+            </div>
+            
+            <div>
+              <h4 className="text-sm font-medium text-gray-500">Financial Details</h4>
+              <dl className="mt-2 space-y-3">
+                <div className="flex justify-between">
+                  <dt className="text-sm font-medium text-gray-500">Cost Estimate</dt>
+                  <dd className="text-sm text-gray-900">₹{request.costEstimate.toLocaleString()}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm font-medium text-gray-500">Expense Category</dt>
+                  <dd className="text-sm text-gray-900">{request.expenseCategory}</dd>
+                </div>
+                {request.sopReference && (
+                  <div className="flex justify-between">
+                    <dt className="text-sm font-medium text-gray-500">SOP Reference</dt>
+                    <dd className="text-sm text-gray-900">{request.sopReference}</dd>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <dt className="text-sm font-medium text-gray-500">Created</dt>
+                  <dd className="text-sm text-gray-900">{new Date(request.createdAt).toLocaleDateString()}</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+          
+          {/* Document Attachments */}
+          {request.attachments && request.attachments.length > 0 && (
+            <div className="mt-6">
+              <h4 className="text-sm font-medium text-gray-500">Document Attachments</h4>
+              <ul className="mt-2 border border-gray-200 rounded-md divide-y divide-gray-200">
+                {request.attachments.map((attachment, index) => (
+                  <li key={index} className="pl-3 pr-4 py-3 flex items-center justify-between text-sm">
+                    <div className="flex items-center w-0 flex-1">
+                      <svg className="flex-shrink-0 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
+                      </svg>
+                      <span className="ml-2 flex-1 w-0 truncate">{getFileNameFromUrl(attachment)}</span>
+                    </div>
+                    <div className="ml-4 flex-shrink-0">
+                      <a 
+                        href={attachment} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="font-medium text-blue-600 hover:text-blue-500"
+                      >
+                        View
+                      </a>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
+          {/* Action Buttons - Only show for approvers */}
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <button
+              onClick={() => setIsApprovalModalOpen(true)}
+              className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 w-full sm:w-auto"
+            >
+              Process Request
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Workflow Visualization */}
+      <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-8">
+        <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
+          <h3 className="text-lg leading-6 font-medium text-gray-900">Approval Workflow</h3>
+        </div>
+        <div className="px-4 py-5 sm:p-6">
+          <ApprovalWorkflow currentStatus={request.status} />
+        </div>
+      </div>
+
+      {/* Enhanced History Section */}
+      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
+          <h3 className="text-lg leading-6 font-medium text-gray-900">Approval History</h3>
+        </div>
+        <div className="px-4 py-5 sm:p-6">
+          <ApprovalHistory history={request.history} currentStatus={request.status} />
+        </div>
+      </div>
+      
+      {/* Approval Modal */}
+      <ApprovalModal
+        requestId={params.id}
+        isOpen={isApprovalModalOpen}
+        onClose={() => setIsApprovalModalOpen(false)}
+        onApprove={handleApprove}
+        currentStatus={request.status}
+      />
+    </div>
+  );
+}
