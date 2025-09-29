@@ -30,10 +30,6 @@ const getStatusBadgeClass = (status: string) => {
       return 'bg-pink-100 text-pink-800';
     case 'dean_review':
       return 'bg-orange-100 text-orange-800';
-    case 'department_checks':
-      return 'bg-teal-100 text-teal-800';
-    case 'dean_verification':
-      return 'bg-cyan-100 text-cyan-800';
     case 'chief_director_approval':
       return 'bg-amber-100 text-amber-800';
     case 'chairman_approval':
@@ -78,8 +74,6 @@ const getStatusDisplayName = (status: string) => {
     'vp_approval': 'VP Approval',
     'hoi_approval': 'HOI Approval',
     'dean_review': 'Dean Review',
-    'department_checks': 'Department Checks',
-    'dean_verification': 'Dean Verification',
     'chief_director_approval': 'Chief Director Approval',
     'chairman_approval': 'Chairman Approval',
     'approved': 'Approved',
@@ -163,7 +157,7 @@ const ApprovalHistory: React.FC<ApprovalHistoryProps> = ({ history, currentStatu
                           {getActionDisplayName(historyItem.action)}
                         </span>
                         <span className="ml-3 text-sm font-medium text-gray-900">
-                          {historyItem.actor.name}
+                          {historyItem.actor?.name || 'Unknown User'}
                         </span>
                       </div>
                       <div className="text-sm text-gray-500">

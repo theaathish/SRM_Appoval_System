@@ -51,11 +51,14 @@ export default function ApprovalModal({
   // Institution Manager: can only clarify, reject, forward (NO approve)
   const isInstitutionManager = userRole === 'institution_manager';
   
-  // Senior roles: can only approve (NO reject, clarification, forward) - excluding Dean who has clarification capabilities
-  const approvalOnlyRoles = ['vp', 'head_of_institution', 'chief_director', 'chairman'];
-  const isApprovalOnlyUser = approvalOnlyRoles.includes(userRole || '');
+  // VP, HOI, Chief Director: can only forward and reject (NO approve)
+  const forwardOnlyRoles = ['vp', 'head_of_institution', 'chief_director'];
+  const isForwardOnlyUser = forwardOnlyRoles.includes(userRole || '');
   
-  // Dean has special capabilities: approve, clarify (with 4 departments), reject, forward
+  // Chairman: can only approve (final approver)
+  const isChairman = userRole === 'chairman';
+  
+  // Dean has special capabilities: clarify (with 4 departments), reject, forward (NO approve)
   const isDean = userRole === 'dean';
   
   // Check if current status is a clarification status
@@ -75,10 +78,16 @@ export default function ApprovalModal({
         setAction('clarify');
         setClarifyTarget('');
       }
-    } else if (isApprovalOnlyUser) {
-      // For approval-only users (VP, HOI, Chief Director, Chairman), default to approve
+    } else if (isChairman) {
+      // For Chairman, default to approve (they can only approve)
       if (action !== 'approve') {
         setAction('approve');
+        setClarifyTarget('');
+      }
+    } else if (isForwardOnlyUser) {
+      // For VP, HOI, Chief Director, default to forward (they can forward or reject)
+      if (!['forward', 'reject'].includes(action)) {
+        setAction('forward');
         setClarifyTarget('');
       }
     } else if (isInstitutionManager) {
@@ -88,9 +97,9 @@ export default function ApprovalModal({
         setClarifyTarget('');
       }
     } else if (isDean) {
-      // For Dean, default to approve (they have full capabilities)
-      if (!['approve', 'reject', 'clarify', 'forward'].includes(action)) {
-        setAction('approve');
+      // For Dean, default to reject (they can clarify, reject, forward - NO approve)
+      if (!['reject', 'clarify', 'forward'].includes(action)) {
+        setAction('reject');
         setClarifyTarget('');
       }
     } else if (!canRequestClarification && action === 'clarify') {
@@ -98,7 +107,7 @@ export default function ApprovalModal({
       setAction('approve');
       setClarifyTarget('');
     }
-  }, [canRequestClarification, action, isClarificationOnlyUser, isClarificationStatus, isApprovalOnlyUser, isInstitutionManager, isDean]);
+  }, [canRequestClarification, action, isClarificationOnlyUser, isClarificationStatus, isChairman, isForwardOnlyUser, isInstitutionManager, isDean]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,10 +227,16 @@ export default function ApprovalModal({
                 <>
                   <option value="clarify">Submit Clarification Response</option>
                 </>
-              ) : isApprovalOnlyUser ? (
+              ) : isChairman ? (
                 <>
-                  {/* Senior roles (VP, HOI, Chief Director, Chairman) can only approve */}
+                  {/* Chairman can only approve (final approver) */}
                   <option value="approve">Approve</option>
+                </>
+              ) : isForwardOnlyUser ? (
+                <>
+                  {/* VP, HOI, Chief Director can only forward and reject */}
+                  <option value="forward">Forward</option>
+                  <option value="reject">Reject</option>
                 </>
               ) : isInstitutionManager ? (
                 <>
@@ -232,8 +247,7 @@ export default function ApprovalModal({
                 </>
               ) : isDean ? (
                 <>
-                  {/* Dean can approve, clarify with departments, reject, forward */}
-                  <option value="approve">Approve</option>
+                  {/* Dean can clarify with departments, reject, forward (NO approve) */}
                   <option value="reject">Reject</option>
                   <option value="clarify">Request Clarification</option>
                   <option value="forward">Forward</option>
@@ -321,7 +335,9 @@ export default function ApprovalModal({
             </div>
           )}
           
-          {(action === 'approve' || action === 'budget_check') && (
+          {/* Budget availability section - show for approve/budget_check actions OR for Accountant responding to budget clarification */}
+          {(action === 'approve' || action === 'budget_check' || 
+            (userRole === 'accountant' && currentStatus === 'budget_clarification' && action === 'clarify')) && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Budget Available

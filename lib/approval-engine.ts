@@ -14,6 +14,12 @@ export class ApprovalEngine {
 
     // Institution Manager(s) → SOP Verification (Material Check)
     { from: RequestStatus.MANAGER_REVIEW, to: RequestStatus.SOP_VERIFICATION, requiredRole: UserRole.INSTITUTION_MANAGER },
+    
+    // Institution Manager can also directly approve from MANAGER_REVIEW to INSTITUTION_VERIFIED
+    { from: RequestStatus.MANAGER_REVIEW, to: RequestStatus.INSTITUTION_VERIFIED, requiredRole: UserRole.INSTITUTION_MANAGER },
+    
+    // Institution Manager can also forward directly from MANAGER_REVIEW to VP_APPROVAL
+    { from: RequestStatus.MANAGER_REVIEW, to: RequestStatus.VP_APPROVAL, requiredRole: UserRole.INSTITUTION_MANAGER },
 
     // Institution Manager can request SOP clarification
     { from: RequestStatus.MANAGER_REVIEW, to: RequestStatus.SOP_CLARIFICATION, requiredRole: UserRole.INSTITUTION_MANAGER },
@@ -27,7 +33,6 @@ export class ApprovalEngine {
 
     // Dean can request Department clarification from the 4 department users
     { from: RequestStatus.DEAN_REVIEW, to: RequestStatus.DEPARTMENT_CLARIFICATION, requiredRole: UserRole.DEAN },
-    { from: RequestStatus.DEPARTMENT_CHECKS, to: RequestStatus.DEPARTMENT_CLARIFICATION, requiredRole: UserRole.DEAN },
 
     // SOP Verifier can return from SOP clarification to Institution Manager
     { from: RequestStatus.SOP_CLARIFICATION, to: RequestStatus.MANAGER_REVIEW, requiredRole: UserRole.SOP_VERIFIER },
@@ -66,18 +71,8 @@ export class ApprovalEngine {
     // Head of Institution → Dean Review
     { from: RequestStatus.HOI_APPROVAL, to: RequestStatus.DEAN_REVIEW, requiredRole: UserRole.HEAD_OF_INSTITUTION },
 
-    // Dean Review → Department Checks OR Chairman (direct path for budget not available)
-    { from: RequestStatus.DEAN_REVIEW, to: RequestStatus.DEPARTMENT_CHECKS, requiredRole: UserRole.DEAN },
-    { from: RequestStatus.DEAN_REVIEW, to: RequestStatus.CHAIRMAN_APPROVAL, requiredRole: UserRole.DEAN, condition: (ctx) => ctx.budgetAvailable === false && ctx.directToChairman === true },
-
-    // Department Checks → Dean Verification - Any department can approve
-    { from: RequestStatus.DEPARTMENT_CHECKS, to: RequestStatus.DEAN_VERIFICATION, requiredRole: UserRole.MMA },
-    { from: RequestStatus.DEPARTMENT_CHECKS, to: RequestStatus.DEAN_VERIFICATION, requiredRole: UserRole.HR },
-    { from: RequestStatus.DEPARTMENT_CHECKS, to: RequestStatus.DEAN_VERIFICATION, requiredRole: UserRole.AUDIT },
-    { from: RequestStatus.DEPARTMENT_CHECKS, to: RequestStatus.DEAN_VERIFICATION, requiredRole: UserRole.IT },
-
-    // Dean Verification → Chief Director
-    { from: RequestStatus.DEAN_VERIFICATION, to: RequestStatus.CHIEF_DIRECTOR_APPROVAL, requiredRole: UserRole.DEAN },
+    // Dean Review → Chief Director (simplified flow)
+    { from: RequestStatus.DEAN_REVIEW, to: RequestStatus.CHIEF_DIRECTOR_APPROVAL, requiredRole: UserRole.DEAN },
 
     // Chief Director → Chairman
     { from: RequestStatus.CHIEF_DIRECTOR_APPROVAL, to: RequestStatus.CHAIRMAN_APPROVAL, requiredRole: UserRole.CHIEF_DIRECTOR },
@@ -114,9 +109,29 @@ export class ApprovalEngine {
     
     // For forward action, determine the next appropriate status
     if (action === ActionType.FORWARD) {
-      // Special handling for Institution Manager forward at INSTITUTION_VERIFIED stage
-      if (currentStatus === RequestStatus.INSTITUTION_VERIFIED && userRole === UserRole.INSTITUTION_MANAGER) {
+      // Institution Manager can forward from MANAGER_REVIEW or INSTITUTION_VERIFIED to VP
+      if ((currentStatus === RequestStatus.MANAGER_REVIEW || currentStatus === RequestStatus.INSTITUTION_VERIFIED) && userRole === UserRole.INSTITUTION_MANAGER) {
         return RequestStatus.VP_APPROVAL; // Forward to VP
+      }
+      
+      // VP forwards to HOI
+      if (currentStatus === RequestStatus.VP_APPROVAL && userRole === UserRole.VP) {
+        return RequestStatus.HOI_APPROVAL;
+      }
+      
+      // HOI forwards to Dean
+      if (currentStatus === RequestStatus.HOI_APPROVAL && userRole === UserRole.HEAD_OF_INSTITUTION) {
+        return RequestStatus.DEAN_REVIEW;
+      }
+      
+      // Dean forwards from DEAN_REVIEW directly to CHIEF_DIRECTOR_APPROVAL (simplified flow)
+      if (currentStatus === RequestStatus.DEAN_REVIEW && userRole === UserRole.DEAN) {
+        return RequestStatus.CHIEF_DIRECTOR_APPROVAL;
+      }
+      
+      // Chief Director forwards to Chairman
+      if (currentStatus === RequestStatus.CHIEF_DIRECTOR_APPROVAL && userRole === UserRole.CHIEF_DIRECTOR) {
+        return RequestStatus.CHAIRMAN_APPROVAL;
       }
       
       // For other cases, status remains the same
@@ -129,15 +144,6 @@ export class ApprovalEngine {
         return RequestStatus.VP_APPROVAL;
       } else if (context.budgetAvailable === false) {
         return RequestStatus.DEAN_REVIEW;
-      }
-    }
-
-    // Special handling for Dean at DEAN_REVIEW stage when budget is not available
-    if (currentStatus === RequestStatus.DEAN_REVIEW && userRole === UserRole.DEAN && context.budgetAvailable === false) {
-      if (context.directToChairman === true) {
-        return RequestStatus.CHAIRMAN_APPROVAL;
-      } else {
-        return RequestStatus.DEPARTMENT_CHECKS;
       }
     }
 
@@ -164,8 +170,8 @@ export class ApprovalEngine {
       [RequestStatus.VP_APPROVAL]: [UserRole.VP],
       [RequestStatus.HOI_APPROVAL]: [UserRole.HEAD_OF_INSTITUTION],
       [RequestStatus.DEAN_REVIEW]: [UserRole.DEAN],
-      [RequestStatus.DEPARTMENT_CHECKS]: [UserRole.MMA, UserRole.HR, UserRole.AUDIT, UserRole.IT],
-      [RequestStatus.DEAN_VERIFICATION]: [UserRole.DEAN],
+      [RequestStatus.DEPARTMENT_CHECKS]: [], // Removed from workflow
+      [RequestStatus.DEAN_VERIFICATION]: [], // Removed from workflow
       [RequestStatus.CHIEF_DIRECTOR_APPROVAL]: [UserRole.CHIEF_DIRECTOR],
       [RequestStatus.CHAIRMAN_APPROVAL]: [UserRole.CHAIRMAN],
       [RequestStatus.APPROVED]: [],
@@ -189,8 +195,6 @@ export class ApprovalEngine {
       RequestStatus.VP_APPROVAL,
       RequestStatus.HOI_APPROVAL,
       RequestStatus.DEAN_REVIEW,
-      RequestStatus.DEPARTMENT_CHECKS,
-      RequestStatus.DEAN_VERIFICATION,
       RequestStatus.CHIEF_DIRECTOR_APPROVAL,
       RequestStatus.CHAIRMAN_APPROVAL,
       RequestStatus.APPROVED,

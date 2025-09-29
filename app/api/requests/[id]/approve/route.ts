@@ -79,6 +79,20 @@ export async function POST(
             user.role as UserRole,
             { clarificationType: 'department' }
           ) || requestRecord.status;
+        } else if (['mma', 'hr', 'audit', 'it'].includes(user.role) && requestRecord.status === 'department_clarification') {
+          // Department users responding to clarification - return to Dean
+          nextStatus = approvalEngine.getNextStatus(
+            requestRecord.status,
+            ActionType.APPROVE,  // Use APPROVE action to trigger the transition back to Dean
+            user.role as UserRole,
+            { }
+          ) || RequestStatus.DEAN_REVIEW; // Fallback to DEAN_REVIEW
+        } else if (user.role === UserRole.SOP_VERIFIER && requestRecord.status === 'sop_clarification') {
+          // SOP Verifier responding to clarification - return to Institution Manager
+          nextStatus = RequestStatus.MANAGER_REVIEW;
+        } else if (user.role === UserRole.ACCOUNTANT && requestRecord.status === 'budget_clarification') {
+          // Accountant responding to clarification - return to Institution Manager
+          nextStatus = RequestStatus.MANAGER_REVIEW;
         } else {
           nextStatus = RequestStatus.CLARIFICATION_REQUIRED;
         }

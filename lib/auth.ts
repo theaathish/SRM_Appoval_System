@@ -59,8 +59,6 @@ export function canApproveRequest(userRole: UserRole, requestStatus: string): bo
     'vp_approval': [UserRole.VP],
     'hoi_approval': [UserRole.HEAD_OF_INSTITUTION],
     'dean_review': [UserRole.DEAN],
-    'department_checks': [UserRole.MMA, UserRole.HR, UserRole.AUDIT, UserRole.IT],
-    'dean_verification': [UserRole.DEAN],
     'chief_director_approval': [UserRole.CHIEF_DIRECTOR],
     'chairman_approval': [UserRole.CHAIRMAN],
   };
